@@ -12,6 +12,7 @@ services:
       - opencode_state:/root/.local/state/opencode
       # 配置mcp
       - ../opencode-config:/root/.config/opencode/
+      - /var/run/docker.sock:/var/run/docker.sock
       # 项目目录
       - /home/jcleng/work/mywork/:/home/jcleng/work/mywork/
     working_dir: /home/jcleng/work/mywork/

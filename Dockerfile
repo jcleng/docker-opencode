@@ -22,6 +22,16 @@ RUN apt-get update \
 # 安装 opencode
 RUN npm install -g skills @opencode/cli
 
+# ! 自定义自己的命令
+# busybox
+ADD https://busybox.net/downloads/binaries/1.21.1/busybox-x86_64 /bin/busybox_new
+RUN chmod +x /bin/busybox_new && mv /bin/busybox_new /bin/busybox
+# docker 记得映射宿主机 /var/run/docker.sock
+COPY --from=registry.cn-hangzhou.aliyuncs.com/jcleng/library-docker:24.0.9-cli /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=registry.cn-hangzhou.aliyuncs.com/jcleng/library-docker:24.0.9-cli /usr/local/bin/docker-compose /usr/local/bin/docker-compose
+# php
+RUN curl -fsSL https://dl.static-php.dev/static-php-cli/common/php-8.4.1-cli-linux-x86_64.tar.gz | tar -xz -C /usr/local/bin
+
 # opencode 安装脚本默认将二进制放到 ~/.local/bin
 # 写入 PATH，保证容器内可直接调用 opencode
 ENV PATH="/root/.local/bin:${PATH}"
