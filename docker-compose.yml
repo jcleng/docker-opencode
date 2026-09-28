@@ -6,8 +6,13 @@ services:
     # 每一个终端都是一个端口
     network_mode: host
     volumes:
-      - opencode_agent_dir2:/root/.agents/
-      - ../opencode-config:/root/.opencode
+      # opencode 数据目录/skills
+      - opencode_agent:/root/.agents/
+      - opencode_share:/root/.local/share/opencode
+      - opencode_state:/root/.local/state/opencode
+      # 配置mcp
+      - ../opencode-config:/root/.config/opencode/
+      # 项目目录
       - /home/jcleng/work/mywork/:/home/jcleng/work/mywork/
     working_dir: /home/jcleng/work/mywork/
     environment:
@@ -16,4 +21,6 @@ services:
     tty: true
     command: bash
 volumes:
-  opencode_agent_dir2:
+  opencode_agent:
+  opencode_share:
+  opencode_state:
