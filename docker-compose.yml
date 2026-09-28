@@ -1,0 +1,19 @@
+services:
+  docker-opencode:
+    image: registry.cn-hangzhou.aliyuncs.com/jcleng/docker-opencode
+    container_name: docker-opencode
+    entrypoint: []
+    # 每一个终端都是一个端口
+    network_mode: host
+    volumes:
+      - opencode_agent_dir2:/root/.agents/
+      - ../opencode-config:/root/.opencode
+      - /home/jcleng/work/mywork/:/home/jcleng/work/mywork/
+    working_dir: /home/jcleng/work/mywork/
+    environment:
+      - PATH=/root/.local/bin:$PATH
+      # - ALL_PROXY=socks5://192.168.195.18:20170
+    tty: true
+    command: bash
+volumes:
+  opencode_agent_dir2:
