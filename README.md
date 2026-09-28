@@ -54,3 +54,10 @@ npx skills add <repo> -a opencode # 把技能安装到 opencode
 
 - 镜像基于 Debian 系，系统依赖使用 `apt-get` 安装；若底包改为 Alpine 系，需将包管理命令替换为 `apk add`。
 - opencode 与 skills 的详细用法参见官方文档：https://opencode.ai 与 https://skills.sh
+
+## 宿主机`opencode`命令
+
+```shell
+#!/usr/bin/env bash
+docker exec -it docker-opencode bash -c "cd '$PWD' && opencode"
+```
