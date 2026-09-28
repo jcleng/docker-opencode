@@ -15,7 +15,12 @@ docker-opencode/
 
 - 底包：`registry.cn-hangzhou.aliyuncs.com/jcleng/library-node:24`（Debian 系）
 - 系统依赖：`git`、`python3`（`python` 命令由 python-is-python3 提供）、`curl`、`ca-certificates`、`tar`、`unzip`
-- 全局工具：`skills`（open agent skills 生态 CLI，安装后 `npx skills` / `skills` 均可用）
+- 全局工具：
+  - `skills`（open agent skills 生态 CLI，安装后 `npx skills` / `skills` 均可用）
+  - `docker` / `docker-compose`（CLI，从 `library-docker:24.0.9-cli` 复制）
+  - `php` 8.4.1（static PHP，静态编译，无需扩展管理）
+  - `gh` v2.101.0（GitHub CLI）
+  - `busybox`（从自定义 release 下载，替换系统 busybox）
 - opencode：通过npm `@opencode/cli` 安装到 `~/.local/bin`
 - 运行用户：`root`
 - 工作目录：`/home/jcleng/work/mywork/`
