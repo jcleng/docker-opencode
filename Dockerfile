@@ -31,6 +31,10 @@ COPY --from=registry.cn-hangzhou.aliyuncs.com/jcleng/library-docker:24.0.9-cli /
 COPY --from=registry.cn-hangzhou.aliyuncs.com/jcleng/library-docker:24.0.9-cli /usr/local/bin/docker-compose /usr/local/bin/docker-compose
 # php
 RUN curl -fsSL https://dl.static-php.dev/static-php-cli/common/php-8.4.1-cli-linux-x86_64.tar.gz | tar -xz -C /usr/local/bin
+# RUN curl -fsSL "https://github.com/${REPO}/releases/download/static-php_${PHP_VERSION}_${FILE_DATE}/static-php-cli-${PHP_VERSION}_${FILE_DATE}.zip" -o /tmp/php.zip \
+#     && unzip -q /tmp/php.zip -d /tmp/php-extract \
+#     && install -m 0755 /tmp/php-extract/buildroot/bin/php /usr/local/bin/php \
+#     && rm -rf /tmp/php.zip /tmp/php-extract
 
 # opencode 安装脚本默认将二进制放到 ~/.local/bin
 # 写入 PATH，保证容器内可直接调用 opencode
