@@ -16,7 +16,7 @@ docker-opencode/
 - 底包：`registry.cn-hangzhou.aliyuncs.com/jcleng/library-node:24`（Debian 系）
 - 系统依赖：`git`、`python3`（`python` 命令由 python-is-python3 提供）、`curl`、`ca-certificates`、`tar`、`unzip`
 - 全局工具：`skills`（open agent skills 生态 CLI，安装后 `npx skills` / `skills` 均可用）
-- opencode：通过官方脚本 `curl -fsSL https://opencode.ai/v2/install | bash` 安装到 `~/.local/bin`
+- opencode：通过npm `@opencode/cli` 安装到 `~/.local/bin`
 - 运行用户：`root`
 - 工作目录：`/home/jcleng/work/mywork/`
 
