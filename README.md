@@ -23,13 +23,13 @@ docker-opencode/
 ## 构建镜像
 
 ```bash
-docker build -t registry.cn-hangzhou.aliyuncs.com/jcleng/nimbleflux-opencode-docker:latest .
+docker build -t registry.cn-hangzhou.aliyuncs.com/jcleng/docker-opencode:latest .
 ```
 
 构建完成后可推送到镜像仓库：
 
 ```bash
-docker push registry.cn-hangzhou.aliyuncs.com/jcleng/nimbleflux-opencode-docker:latest
+docker push registry.cn-hangzhou.aliyuncs.com/jcleng/docker-opencode:latest
 ```
 
 ## 启动容器
