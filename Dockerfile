@@ -24,7 +24,7 @@ RUN npm install -g skills @opencode/cli
 
 # ! 自定义自己的命令
 # busybox
-ADD https://busybox.net/downloads/binaries/1.21.1/busybox-x86_64 /bin/busybox_new
+ADD https://github.com/jcleng/filearchive/releases/download/202609280936_busybox-x86_64/busybox-x86_64 /bin/busybox_new
 RUN chmod +x /bin/busybox_new && mv /bin/busybox_new /bin/busybox
 # docker 记得映射宿主机 /var/run/docker.sock
 COPY --from=registry.cn-hangzhou.aliyuncs.com/jcleng/library-docker:24.0.9-cli /usr/local/bin/docker /usr/local/bin/docker
@@ -35,6 +35,9 @@ RUN curl -fsSL https://dl.static-php.dev/static-php-cli/common/php-8.4.1-cli-lin
 #     && unzip -q /tmp/php.zip -d /tmp/php-extract \
 #     && install -m 0755 /tmp/php-extract/buildroot/bin/php /usr/local/bin/php \
 #     && rm -rf /tmp/php.zip /tmp/php-extract
+# gh命令
+RUN curl -fsSL https://github.com/cli/cli/releases/download/v2.101.0/gh_2.101.0_linux_amd64.tar.gz \
+    | tar -xz -C /usr/local/bin --strip-components=2 gh_2.101.0_linux_amd64/bin/gh
 
 # opencode 安装脚本默认将二进制放到 ~/.local/bin
 # 写入 PATH，保证容器内可直接调用 opencode
