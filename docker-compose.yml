@@ -7,21 +7,17 @@ services:
     network_mode: host
     volumes:
       # opencode 数据目录/skills
-      - opencode_agent:/root/.agents/
-      - opencode_share:/root/.local/share/opencode
-      - opencode_state:/root/.local/state/opencode
+      - opencode_root:/root/
       # 配置mcp
       - ../opencode-config:/root/.config/opencode/
       - /var/run/docker.sock:/var/run/docker.sock
       # 项目目录
       - /home/jcleng/work/mywork/:/home/jcleng/work/mywork/
     working_dir: /home/jcleng/work/mywork/
-    environment:
-      - PATH=/root/.local/bin:$PATH
-      # - ALL_PROXY=socks5://192.168.195.18:20170
+    # environment:
+    #   - http_proxy=socks5://192.168.195.18:20170
+    #   - https_proxy=socks5://192.168.195.18:20170
     tty: true
     command: bash
 volumes:
-  opencode_agent:
-  opencode_share:
-  opencode_state:
+  opencode_root:
