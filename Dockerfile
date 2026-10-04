@@ -21,6 +21,8 @@ RUN apt-get update \
 # 全局安装 skills CLI（支持 `npx skills` / `skills` 命令）
 # 安装 opencode
 RUN npm install -g skills @opencode/cli
+# 安装 pi agent（pi.dev 官方包，使用 --ignore-scripts 避免装包时自动执行下载/编译脚本）
+RUN npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 
 # ! 自定义自己的命令
 # busybox
