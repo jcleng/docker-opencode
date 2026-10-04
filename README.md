@@ -100,9 +100,17 @@ pi-web-server                     # 启动 pi-web Web UI（默认 http://127.0.0
 
 pi-web 是 Pi Coding Agent 的网页界面，能让 agent session 在真实 workspace 中保持运行，并从任意浏览器（笔记本 / 手机 / 平板）监督。容器内已安装 `@jmfederico/pi-web` 并完成 `pi-web install`。
 
-- 启动服务：`pi-web-server`（或 `pi-web start`）
+pi-web 是**双进程架构**（`pi-web-sessiond` 守护进程 + `pi-web-server` Web 服务），镜像内已内置启动脚本 `/usr/local/bin/pi-web-start`，在无 systemd 的容器里自动按正确顺序拉起两个进程：
+
+```bash
+pi-web-start start      # 启动（先 sessiond 建 socket，再 web server）
+pi-web-start status     # 查看状态
+pi-web-start restart    # 重启
+pi-web-start stop       # 停止
+```
+
 - 默认地址：`http://127.0.0.1:8504`（容器内）；因 `docker-compose.yml` 使用 `host` 网络模式，宿主机可直接访问 `http://<容器IP>:8504`
-- 如需容器外可达，可在 Dockerfile 的 `ENV PI_WEB_HOST` 改为 `0.0.0.0`，或启动时 `PI_WEB_HOST=0.0.0.0 pi-web-server`
+- 如需容器外可达，用 `PI_WEB_HOST=0.0.0.0 pi-web-start restart`，或改 Dockerfile 的 `ENV PI_WEB_HOST` 为 `0.0.0.0`
 - 更多配置见 https://pi-web.dev/config
 
 > 安全提示：pi-web 假设可信用户 / 可信仓库，请勿在没有 VPN / 防火墙 / 反向代理鉴权的情况下直接暴露到公网。

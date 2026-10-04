@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# pi-web-start: 在无 systemd 的容器里启动 Pi Coding Agent Web UI (pi-web)
+# pi-web 是双进程架构：
+#   - pi-web-sessiond  : 常驻守护进程，创建 Unix socket (sessiond.sock)
+#   - pi-web-server    : Web 服务，通过 socket 与 sessiond 通信
+# 必须先启动 sessiond，再启动 web server，否则会报 ENOENT sessiond.sock。
+
+set -uo pipefail
+
+PI_WEB_DATA_DIR="${PI_WEB_DATA_DIR:-/root/.pi-web}"
+PI_WEB_HOST="${PI_WEB_HOST:-127.0.0.1}"
+PI_WEB_PORT="${PI_WEB_PORT:-8504}"
+
+SESSIOND_BIN="$(command -v pi-web-sessiond || true)"
+SERVER_BIN="$(command -v pi-web-server || true)"
+SOCK="$PI_WEB_DATA_DIR/sessiond.sock"
+
+log() { echo "[pi-web-start] $*"; }
+
+if [ -z "$SESSIOND_BIN" ] || [ -z "$SERVER_BIN" ]; then
+  log "ERROR: 未在 PATH 中找到 pi-web-sessiond 或 pi-web-server，请确认 @jmfederico/pi-web 已安装"
+  exit 1
+fi
+
+mkdir -p "$PI_WEB_DATA_DIR"
+
+stop_existing() {
+  log "停止已有的 pi-web 进程 ..."
+  pkill -f "pi-web-sessiond" 2>/dev/null || true
+  pkill -f "pi-web-server" 2>/dev/null || true
+  for _ in $(seq 1 10); do
+    [ -S "$SOCK" ] || break
+    sleep 0.5
+  done
+  rm -f "$SOCK"
+}
+
+start_sessiond() {
+  log "启动 pi-web-sessiond ..."
+  nohup "$SESSIOND_BIN" > "$PI_WEB_DATA_DIR/sessiond.log" 2>&1 &
+  echo "$!" > "$PI_WEB_DATA_DIR/sessiond.pid"
+}
+
+wait_socket() {
+  log "等待 sessiond socket ($SOCK) ..."
+  for _ in $(seq 1 30); do
+    if [ -S "$SOCK" ]; then
+      log "sessiond socket 已就绪"
+      return 0
+    fi
+    sleep 1
+  done
+  log "ERROR: 30s 内未创建 sessiond socket，详见 $PI_WEB_DATA_DIR/sessiond.log"
+  return 1
+}
+
+start_server() {
+  log "启动 pi-web-server (监听 $PI_WEB_HOST:$PI_WEB_PORT) ..."
+  PI_WEB_HOST="$PI_WEB_HOST" PI_WEB_PORT="$PI_WEB_PORT" \
+    nohup "$SERVER_BIN" > "$PI_WEB_DATA_DIR/server.log" 2>&1 &
+  echo "$!" > "$PI_WEB_DATA_DIR/server.pid"
+}
+
+status() {
+  if [ -S "$SOCK" ]; then
+    log "sessiond : UP (socket 存在)"
+  else
+    log "sessiond : DOWN"
+  fi
+  if pgrep -f "pi-web-server" >/dev/null 2>&1; then
+    log "web server: UP (pid $(cat "$PI_WEB_DATA_DIR/server.pid" 2>/dev/null))"
+  else
+    log "web server: DOWN"
+  fi
+  log "Web UI   : http://$PI_WEB_HOST:$PI_WEB_PORT"
+}
+
+case "${1:-start}" in
+  start)
+    if [ -S "$SOCK" ] && pgrep -f "pi-web-server" >/dev/null 2>&1; then
+      log "pi-web 已在运行。"; status; exit 0
+    fi
+    stop_existing
+    start_sessiond
+    if wait_socket; then
+      start_server
+      sleep 1
+      status
+      log "完成。如需容器外访问，请用 PI_WEB_HOST=0.0.0.0 pi-web-start start 重启，并加反向代理鉴权"
+    else
+      exit 1
+    fi
+    ;;
+  stop)
+    stop_existing
+    log "已停止 pi-web"
+    ;;
+  restart)
+    "$0" stop
+    sleep 1
+    "$0" start
+    ;;
+  status)
+    status
+    ;;
+  *)
+    echo "用法: pi-web-start [start|stop|restart|status]"
+    exit 1
+    ;;
+esac

@@ -69,6 +69,7 @@ registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-docker-opencode
 - 全局工具：`skills`、`@opencode/cli`（~/.local/bin）、`docker`/`docker-compose`、`php` 8.4.1、`gh` v2.101.0、`busybox`
 - pi agent：`@earendil-works/pi-coding-agent`（命令 `pi`）
 - pi-web：`@jmfederico/pi-web`（命令 `pi-web` / `pi-web-server`，Web UI，默认 `127.0.0.1:8504`，监听地址/端口由 `PI_WEB_HOST` / `PI_WEB_PORT` 控制）
+- 内置启动脚本 `scripts/pi-web-start` → 镜像内 `/usr/local/bin/pi-web-start`（无 systemd 环境手动拉起 `pi-web-sessiond` + `pi-web-server`，支持 start/stop/restart/status）
 - 运行用户：`root`；工作目录：`/home/jcleng/work/mywork/`
 
 ## 6. 使用

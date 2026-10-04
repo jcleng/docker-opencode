@@ -29,6 +29,9 @@ RUN npm install -g @jmfederico/pi-web --allow-scripts=node-pty
 # 注册 pi-web 服务并写默认配置（host 127.0.0.1 / 端口 8504）
 # 注意：容器内以 127.0.0.1 监听，宿主机通过端口映射访问；如需容器外可达可改 PI_WEB_HOST=0.0.0.0
 RUN pi-web install --host 127.0.0.1 --port 8504 || true
+# 内置 pi-web 启动脚本（无 systemd 环境下手动拉起 sessiond + web server）
+COPY scripts/pi-web-start /usr/local/bin/pi-web-start
+RUN chmod +x /usr/local/bin/pi-web-start
 
 # ! 自定义自己的命令
 # busybox
