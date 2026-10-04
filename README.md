@@ -23,6 +23,7 @@ docker-opencode/
   - `busybox`（从自定义 release 下载，替换系统 busybox）
 - opencode：通过npm `@opencode/cli` 安装到 `~/.local/bin`
 - pi agent：通过 npm `@earendil-works/pi-coding-agent`（pi.dev 官方包，`--ignore-scripts` 安装）提供 `pi` 命令，容器内直接 `pi` 即可启动
+- **pi-web**：通过 npm `@jmfederico/pi-web`（[GitHub](https://github.com/jmfederico/pi-web) / [官网](https://pi-web.dev)）安装，提供 Pi Coding Agent 的 Web UI。容器内已 `pi-web install` 注册服务，默认 **host `127.0.0.1`、端口 `8504`**。通过 `PI_WEB_HOST` / `PI_WEB_PORT` 环境变量可调整监听地址与端口。
 - 运行用户：`root`
 - 工作目录：`/home/jcleng/work/mywork/`
 
@@ -92,7 +93,19 @@ opencode                          # 启动 opencode
 pi                                # 启动 pi agent（pi.dev）
 skills --help                     # 查看 skills CLI 用法
 npx skills add <repo> -a opencode # 把技能安装到 opencode
+pi-web-server                     # 启动 pi-web Web UI（默认 http://127.0.0.1:8504）
 ```
+
+### pi-web（Web UI）说明
+
+pi-web 是 Pi Coding Agent 的网页界面，能让 agent session 在真实 workspace 中保持运行，并从任意浏览器（笔记本 / 手机 / 平板）监督。容器内已安装 `@jmfederico/pi-web` 并完成 `pi-web install`。
+
+- 启动服务：`pi-web-server`（或 `pi-web start`）
+- 默认地址：`http://127.0.0.1:8504`（容器内）；因 `docker-compose.yml` 使用 `host` 网络模式，宿主机可直接访问 `http://<容器IP>:8504`
+- 如需容器外可达，可在 Dockerfile 的 `ENV PI_WEB_HOST` 改为 `0.0.0.0`，或启动时 `PI_WEB_HOST=0.0.0.0 pi-web-server`
+- 更多配置见 https://pi-web.dev/config
+
+> 安全提示：pi-web 假设可信用户 / 可信仓库，请勿在没有 VPN / 防火墙 / 反向代理鉴权的情况下直接暴露到公网。
 
 ## 注意事项
 

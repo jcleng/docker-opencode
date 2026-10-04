@@ -23,6 +23,12 @@ RUN apt-get update \
 RUN npm install -g skills @opencode/cli
 # 安装 pi agent（pi.dev 官方包）
 RUN npm install -g @earendil-works/pi-coding-agent
+# 安装 pi-web（Pi Coding Agent 的 Web UI，npm 包 @jmfederico/pi-web）
+# --allow-scripts=node-pty 允许 node-pty 准备其原生模块（终端所需）
+RUN npm install -g @jmfederico/pi-web --allow-scripts=node-pty
+# 注册 pi-web 服务并写默认配置（host 127.0.0.1 / 端口 8504）
+# 注意：容器内以 127.0.0.1 监听，宿主机通过端口映射访问；如需容器外可达可改 PI_WEB_HOST=0.0.0.0
+RUN pi-web install --host 127.0.0.1 --port 8504 || true
 
 # ! 自定义自己的命令
 # busybox
@@ -45,8 +51,12 @@ RUN curl -fsSL https://github.com/cli/cli/releases/download/v2.101.0/gh_2.101.0_
 # 写入 PATH，保证容器内可直接调用 opencode
 ENV PATH="/root/.local/bin:${PATH}"
 
+# pi-web 监听端口（Web UI）。如需容器外可达，将下方 ENV 改为 0.0.0.0
+ENV PI_WEB_HOST=127.0.0.1 \
+    PI_WEB_PORT=8504
+
 # 工作目录与 docker-compose 挂载路径保持一致
 WORKDIR /home/jcleng/work/mywork/
 
-# 默认进入交互 shell，方便在容器内启动 opencode
+# 默认进入交互 shell，方便在容器内启动 opencode / pi / pi-web
 CMD ["bash"]
