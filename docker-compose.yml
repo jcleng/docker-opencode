@@ -1,6 +1,6 @@
 services:
   docker-opencode:
-    image: registry.cn-hangzhou.aliyuncs.com/jcleng/docker-opencode
+    image: registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-docker-opencode
     container_name: docker-opencode
     entrypoint: []
     # 每一个终端都是一个端口
