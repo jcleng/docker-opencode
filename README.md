@@ -22,19 +22,57 @@ docker-opencode/
   - `gh` v2.101.0（GitHub CLI）
   - `busybox`（从自定义 release 下载，替换系统 busybox）
 - opencode：通过npm `@opencode/cli` 安装到 `~/.local/bin`
+- pi agent：通过 npm `@earendil-works/pi-coding-agent`（pi.dev 官方包，`--ignore-scripts` 安装）提供 `pi` 命令，容器内直接 `pi` 即可启动
 - 运行用户：`root`
 - 工作目录：`/home/jcleng/work/mywork/`
 
 ## 构建镜像
 
-```bash
-docker build -t registry.cn-hangzhou.aliyuncs.com/jcleng/docker-opencode:latest .
+镜像通过 GitHub Actions 自动构建并推送到阿里云镜像仓库，**不建议在本地手动 `docker build`**（本地环境拉取 Debian 源 / npm 包时网络不稳定，易出现超时）。
+
+### 构建来源
+
+构建由 [`jcleng/action-sync-images`](https://github.com/jcleng/action-sync-images) 仓库的
+[`build-repo.yml`](https://github.com/jcleng/action-sync-images/actions/workflows/build-repo.yml) 工作流完成，
+工作流名称为 **RUN Repo Url && PUSH AliYun**，输入参数说明：
+
+| 参数 | 含义 | 本项目取值 |
+| --- | --- | --- |
+| `arg_repo_url` | 源码 git 仓库地址 | `https://github.com/jcleng/docker-opencode` |
+| `arg_branch_name` | 构建分支 | `master` |
+| `arg_username` | 镜像名前缀 | `gitbuild` |
+| `arg_name` | 镜像名称 | `docker-opencode` |
+| `arg_aliyunurl` | 阿里云仓库地址 | `registry.cn-hangzhou.aliyuncs.com` |
+| `arg_aliyunuser` | 阿里云用户名 | `jcleng` |
+
+工作流会将镜像名拼为 `arg_aliyunurl/arg_aliyunuser/arg_username-arg_name`，因此最终产物为：
+
+```
+registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-docker-opencode
 ```
 
-构建完成后可推送到镜像仓库：
+### 手动触发
+
+在 `action-sync-images` 仓库的 Actions 页面选择 `build-repo.yml`，填好上述参数后 `Run workflow` 即可；
+也可通过 GitHub CLI 触发：
 
 ```bash
-docker push registry.cn-hangzhou.aliyuncs.com/jcleng/docker-opencode:latest
+gh workflow run build-repo.yml --repo jcleng/action-sync-images \
+  -f arg_repo_url="https://github.com/jcleng/docker-opencode" \
+  -f arg_branch_name="master" \
+  -f arg_username="gitbuild" \
+  -f arg_name="docker-opencode" \
+  -f arg_aliyunurl="registry.cn-hangzhou.aliyuncs.com" \
+  -f arg_aliyunuser="jcleng"
+```
+
+### 本地构建（仅调试用）
+
+如确有本地构建需要，注意底包为 Debian 12，apt 源在 `/etc/apt/sources.list.d/debian.sources`，
+且 npm 安装 `@opencode/cli` 时新版 npm 的 `allow-scripts` 机制会跳过其 `postinstall` 脚本，需显式允许：
+
+```bash
+docker build -t registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-docker-opencode .
 ```
 
 ## 启动容器
@@ -51,14 +89,16 @@ docker compose exec docker-opencode bash
 
 ```bash
 opencode                          # 启动 opencode
+pi                                # 启动 pi agent（pi.dev）
 skills --help                     # 查看 skills CLI 用法
 npx skills add <repo> -a opencode # 把技能安装到 opencode
 ```
 
 ## 注意事项
 
+- 镜像完整地址为 `registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-docker-opencode`（含 `gitbuild-` 前缀，由 `build-repo.yml` 拼接规则决定），`docker-compose.yml` 中的 `image` 已与此对齐。
 - 镜像基于 Debian 系，系统依赖使用 `apt-get` 安装；若底包改为 Alpine 系，需将包管理命令替换为 `apk add`。
-- opencode 与 skills 的详细用法参见官方文档：https://opencode.ai 与 https://skills.sh
+- opencode 与 skills 的详细用法参见官方文档：https://opencode.ai 与 https://skills.sh；pi agent 参见 https://pi.dev
 
 ## 宿主机`opencode`命令
 
