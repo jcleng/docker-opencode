@@ -60,7 +60,15 @@ registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-docker-opencode
 4. **pi-web 安装**：需以 `--allow-scripts=node-pty` 安装 `@jmfederico/pi-web`，
    否则 `node-pty` 原生模块不会编译 / 准备，导致终端功能不可用。安装后运行 `pi-web install`
    注册服务并写入默认配置（host `127.0.0.1` / 端口 `8504`）。该命令可能依赖 systemd 等宿主能力，
-   在容器内若失败可忽略（用 `|| true`），运行时仍以 `pi-web-server` 直接启动 Web UI 即可。
+   在容器内若失败可忽略（用 `|| true`）。
+5. **pi-web 是双进程架构**：`pi-web-sessiond`（建 Unix socket `sessiond.sock`）+ `pi-web-server`（Web 服务）。
+   容器内无 systemd，`pi-web start` 会走 systemd 后端而失败；必须用内置脚本 `pi-web-start`
+   （仓库 `scripts/pi-web-start` → 镜像 `/usr/local/bin/pi-web-start`）按序拉起两者。
+   容器 `command` 为 `bash`，**不会自动启动 pi-web**，每次重启容器后需进容器执行 `pi-web-start start`。
+6. **本机用 `docker-compose` 而非 `docker compose`**：该环境只有独立版 `docker-compose`（v2.27.2），
+   没有 `docker compose` 子命令；拉镜像/重建容器务必用 `docker-compose`。重建 `opencodenixos` 时流程：
+   `docker-compose stop opencodenixos` → `docker-compose rm -f opencodenixos` → `docker-compose up -d opencodenixos`，
+   再 `docker exec opencodenixos bash -c 'pi-web-start start'`（注意 exec 不要带 `-t`，非 TTY 环境会报 input device is not a TTY）。
 
 ## 5. 环境组成
 
@@ -75,14 +83,19 @@ registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-docker-opencode
 ## 6. 使用
 
 ```bash
-docker compose up -d
-docker compose exec docker-opencode bash
+docker-compose up -d docker-opencode
+docker-compose exec docker-opencode bash
 # 容器内
-opencode   # 启动 opencode
-pi         # 启动 pi agent
-pi-web-server   # 启动 pi-web Web UI（默认 http://127.0.0.1:8504）
+opencode        # 启动 opencode
+pi             # 启动 pi agent
+pi-web-start start   # 启动 pi-web Web UI（先 sessiond 建 socket，再 web server）
 ```
+
+> opencodenixos 服务定义在另一个 compose 文件（`/home/jcleng/work/monit/opencode/docker-compose.yml`），
+> 同样用 `docker-compose` 操作，且其 `opencodenixos` 服务使用的就是本仓库构建的 `gitbuild-docker-opencode` 镜像。
 
 ## 7. 通知
 
-构建完成通过钉钉机器人（`tools-dingtalk_notify`，access_token 来自环境变量 `DINGTALK_ACCESS_TOKEN`）通知。
+构建完成通过钉钉机器人（`tools-dingtalk_notify`）通知。该工具由 `mcphub` MCP server 提供，
+凭据已配置在 mcphub 容器内，调用时无需本 shell 的 `DINGTALK_ACCESS_TOKEN` 环境变量（之前文档写的依赖该变量已不准确）。
+构建 / 部署完成后，用 `tools-dingtalk_notify`（参数 `content`）发送结果摘要即可。
