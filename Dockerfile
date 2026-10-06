@@ -12,6 +12,7 @@ RUN apt-get update \
         git \
         python3 \
         python-is-python3 \
+        python3-pip \
         curl \
         ca-certificates \
         tar \
