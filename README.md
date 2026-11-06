@@ -20,12 +20,10 @@ docker-opencode/
 - 全局工具：
   - `skills`（open agent skills 生态 CLI，安装后 `npx skills` / `skills` 均可用）
   - `docker` / `docker-compose`（CLI，从 `library-docker:24.0.9-cli` 复制）
-  - `php` 8.4.1（static PHP，静态编译，无需扩展管理）
   - `gh` v2.101.0（GitHub CLI）
-  - `busybox`（从自定义 release 下载，替换系统 busybox）
 - opencode：通过npm `@opencode/cli` 安装到 `~/.local/bin`
 - pi agent：通过 npm `@earendil-works/pi-coding-agent`（pi.dev 官方包，`--ignore-scripts` 安装）提供 `pi` 命令，容器内直接 `pi` 即可启动
-- **pi-web**：通过 npm `@jmfederico/pi-web`（[GitHub](https://github.com/jmfederico/pi-web) / [官网](https://pi-web.dev)）安装，提供 Pi Coding Agent 的 Web UI。容器内已 `pi-web install` 注册服务，默认 **host `127.0.0.1`、端口 `8504`**；同时内置启动脚本 `/usr/local/bin/pi-web-start`。通过 `PI_WEB_HOST` / `PI_WEB_PORT` 环境变量可调整监听地址与端口。
+- **pi-web**：通过 npm `@agegr/pi-web@latest`（[GitHub](https://github.com/agegr/pi-web)）安装，提供 Pi Coding Agent 的 Web UI。该版本为**单进程架构**（`pi-web` 命令直接拉起 Next.js 服务器），无需 `pi-web install` / systemd。默认 **host `127.0.0.1`、端口 `8504`**；同时内置启动脚本 `/usr/local/bin/pi-web-start`。通过 `PI_WEB_HOSTNAME` / `PI_WEB_PORT` 环境变量可调整监听地址与端口。
 - 运行用户：`root`
 - 工作目录：`/home/jcleng/work/mywork/`
 
@@ -69,10 +67,11 @@ gh workflow run build-repo.yml --repo jcleng/action-sync-images \
   -f arg_aliyunuser="jcleng"
 ```
 
-### 本地构建（仅调试用）
+### 本地构建（不推荐）
 
-如确有本地构建需要，注意底包为 Debian 12，apt 源在 `/etc/apt/sources.list.d/debian.sources`，
-且 npm 安装 `@opencode/cli` 时新版 npm 的 `allow-scripts` 机制会跳过其 `postinstall` 脚本，需显式允许：
+本项目**不在本地构建**，一律走上面的 GitHub Actions 工作流。如仅为调试确实需要本地构建，
+注意底包为 Debian 12，apt 源在 `/etc/apt/sources.list.d/debian.sources`，且 npm 的
+`allow-scripts` 机制会跳过依赖的 `postinstall` 脚本（安装 `@agegr/pi-web` 时需显式允许）：
 
 ```bash
 docker build -t registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-docker-opencode .
@@ -97,27 +96,28 @@ opencode                          # 启动 opencode
 pi                                # 启动 pi agent（pi.dev）
 skills --help                     # 查看 skills CLI 用法
 npx skills add <repo> -a opencode # 把技能安装到 opencode
-pi-web-start start               # 启动 pi-web Web UI（先 sessiond 建 socket，再 web server）
+pi-web-start start               # 启动 pi-web Web UI（单进程，直接拉起 pi-web 服务）
 ```
 
 ### pi-web（Web UI）说明
 
-pi-web 是 Pi Coding Agent 的网页界面，能让 agent session 在真实 workspace 中保持运行，并从任意浏览器（笔记本 / 手机 / 平板）监督。容器内已安装 `@jmfederico/pi-web` 并完成 `pi-web install`，启动脚本位于 `/usr/local/bin/pi-web-start`（来自仓库 `scripts/pi-web-start`，构建时 COPY 进镜像）。
+pi-web 是 Pi Coding Agent 的网页界面，能让 agent session 在真实 workspace 中保持运行，并从任意浏览器（笔记本 / 手机 / 平板）监督。容器内已安装 `@agegr/pi-web@latest`（单进程架构，无需 `pi-web install`），启动脚本位于 `/usr/local/bin/pi-web-start`（来自仓库 `scripts/pi-web-start`，构建时 COPY 进镜像）。
 
 > 重要：容器 `command` 为 `bash`，**不会自动拉起 pi-web**。每次（重新）启动容器后，需进容器手动执行 `pi-web-start start`。
 
-pi-web 是**双进程架构**（`pi-web-sessiond` 守护进程 + `pi-web-server` Web 服务），`pi-web-start` 在无 systemd 的容器里自动按正确顺序拉起两个进程：
+`@agegr/pi-web` 是**单进程架构**（`pi-web` 命令内部 spawn Next.js 服务），无需 systemd，`pi-web-start` 负责后台拉起并等待就绪：
 
 ```bash
-pi-web-start start      # 启动（先 sessiond 建 socket，再 web server）
+pi-web-start start      # 启动（后台 nohup pi-web，并轮询端口就绪）
 pi-web-start status     # 查看状态
 pi-web-start restart    # 重启
 pi-web-start stop       # 停止
 ```
 
 - 默认地址：`http://127.0.0.1:8504`（容器内）；因 `docker-compose.yml` 使用 `host` 网络模式，宿主机直接用 `http://<宿主机IP>:8504` 即可访问（无需端口映射）
-- 如需容器外可达，用 `PI_WEB_HOST=0.0.0.0 pi-web-start restart`，或改 Dockerfile 的 `ENV PI_WEB_HOST` 为 `0.0.0.0`
-- 更多配置见 https://pi-web.dev/config
+- 如需容器外可达，用 `PI_WEB_HOSTNAME=0.0.0.0 pi-web-start restart`，或改 Dockerfile 的 `ENV PI_WEB_HOSTNAME` 为 `0.0.0.0`
+- 也可直接用官方命令启动：`pi-web --hostname 127.0.0.1 --port 8504 --no-open`
+- 更多配置见 https://github.com/agegr/pi-web
 
 > 安全提示：pi-web 假设可信用户 / 可信仓库，请勿在没有 VPN / 防火墙 / 反向代理鉴权的情况下直接暴露到公网。
 

@@ -1,92 +1,89 @@
 #!/usr/bin/env bash
 # pi-web-start: 在无 systemd 的容器里启动 Pi Coding Agent Web UI (pi-web)
-# pi-web 是双进程架构：
-#   - pi-web-sessiond  : 常驻守护进程，创建 Unix socket (sessiond.sock)
-#   - pi-web-server    : Web 服务，通过 socket 与 sessiond 通信
-# 必须先启动 sessiond，再启动 web server，否则会报 ENOENT sessiond.sock。
+# @agegr/pi-web 为单进程架构：`pi-web` 命令直接拉起 Next.js 服务器，
+# 无需 sessiond / systemd，也无需 `pi-web install`。
 
 set -uo pipefail
 
-PI_WEB_DATA_DIR="${PI_WEB_DATA_DIR:-/root/.pi-web}"
-PI_WEB_HOST="${PI_WEB_HOST:-127.0.0.1}"
-PI_WEB_PORT="${PI_WEB_PORT:-8504}"
+# pi-web 的 CLI 读取 PI_WEB_HOSTNAME / PORT，也可用 -H / -p 显式传入
+PI_WEB_HOSTNAME="${PI_WEB_HOSTNAME:-127.0.0.1}"
+PI_WEB_PORT="${PORT:-${PI_WEB_PORT:-8504}}"
+PI_WEB_LOG_DIR="${PI_WEB_LOG_DIR:-/root/.pi-web}"
+# 容器内没有默认浏览器
+export PI_WEB_NO_OPEN="${PI_WEB_NO_OPEN:-1}"
+# 容器内不做 npm 在线版本检查
+export PI_WEB_SKIP_VERSION_CHECK="${PI_WEB_SKIP_VERSION_CHECK:-1}"
 
-SESSIOND_BIN="$(command -v pi-web-sessiond || true)"
-SERVER_BIN="$(command -v pi-web-server || true)"
-SOCK="$PI_WEB_DATA_DIR/sessiond.sock"
+LOG="$PI_WEB_LOG_DIR/server.log"
+PID_FILE="$PI_WEB_LOG_DIR/server.pid"
 
 log() { echo "[pi-web-start] $*"; }
 
-if [ -z "$SESSIOND_BIN" ] || [ -z "$SERVER_BIN" ]; then
-  log "ERROR: 未在 PATH 中找到 pi-web-sessiond 或 pi-web-server，请确认 @jmfederico/pi-web 已安装"
+if ! command -v pi-web >/dev/null 2>&1; then
+  log "ERROR: 未在 PATH 中找到 pi-web，请确认 @agegr/pi-web 已安装"
   exit 1
 fi
 
-mkdir -p "$PI_WEB_DATA_DIR"
+mkdir -p "$PI_WEB_LOG_DIR"
+
+is_running() {
+  pgrep -f "pi-web .*--port $PI_WEB_PORT" >/dev/null 2>&1 \
+    || pgrep -f "next start -p $PI_WEB_PORT" >/dev/null 2>&1
+}
 
 stop_existing() {
   log "停止已有的 pi-web 进程 ..."
-  pkill -f "pi-web-sessiond" 2>/dev/null || true
-  pkill -f "pi-web-server" 2>/dev/null || true
+  # 优先用官方命令，失败再回退到 pkill
+  pi-web stop --port "$PI_WEB_PORT" >/dev/null 2>&1 || true
+  pkill -f "pi-web .*--port $PI_WEB_PORT" 2>/dev/null || true
+  pkill -f "next start -p $PI_WEB_PORT" 2>/dev/null || true
   for _ in $(seq 1 10); do
-    [ -S "$SOCK" ] || break
+    is_running || break
     sleep 0.5
   done
-  rm -f "$SOCK"
+  rm -f "$PID_FILE"
 }
 
-start_sessiond() {
-  log "启动 pi-web-sessiond ..."
-  nohup "$SESSIOND_BIN" > "$PI_WEB_DATA_DIR/sessiond.log" 2>&1 &
-  echo "$!" > "$PI_WEB_DATA_DIR/sessiond.pid"
+start_server() {
+  log "启动 pi-web (监听 $PI_WEB_HOSTNAME:$PI_WEB_PORT) ..."
+  nohup pi-web --hostname "$PI_WEB_HOSTNAME" --port "$PI_WEB_PORT" --no-open \
+    > "$LOG" 2>&1 &
+  echo "$!" > "$PID_FILE"
 }
 
-wait_socket() {
-  log "等待 sessiond socket ($SOCK) ..."
-  for _ in $(seq 1 30); do
-    if [ -S "$SOCK" ]; then
-      log "sessiond socket 已就绪"
+wait_ready() {
+  log "等待 pi-web 就绪 ..."
+  for _ in $(seq 1 60); do
+    if curl -fsS -o /dev/null -m 2 "http://127.0.0.1:$PI_WEB_PORT/" 2>/dev/null; then
+      log "pi-web 已就绪"
       return 0
     fi
     sleep 1
   done
-  log "ERROR: 30s 内未创建 sessiond socket，详见 $PI_WEB_DATA_DIR/sessiond.log"
+  log "ERROR: 60s 内未能访问 http://127.0.0.1:$PI_WEB_PORT/ ，详见 $LOG"
   return 1
 }
 
-start_server() {
-  log "启动 pi-web-server (监听 $PI_WEB_HOST:$PI_WEB_PORT) ..."
-  PI_WEB_HOST="$PI_WEB_HOST" PI_WEB_PORT="$PI_WEB_PORT" \
-    nohup "$SERVER_BIN" > "$PI_WEB_DATA_DIR/server.log" 2>&1 &
-  echo "$!" > "$PI_WEB_DATA_DIR/server.pid"
-}
-
 status() {
-  if [ -S "$SOCK" ]; then
-    log "sessiond : UP (socket 存在)"
-  else
-    log "sessiond : DOWN"
-  fi
-  if pgrep -f "pi-web-server" >/dev/null 2>&1; then
-    log "web server: UP (pid $(cat "$PI_WEB_DATA_DIR/server.pid" 2>/dev/null))"
+  if is_running; then
+    log "web server: UP (pid $(cat "$PID_FILE" 2>/dev/null))"
   else
     log "web server: DOWN"
   fi
-  log "Web UI   : http://$PI_WEB_HOST:$PI_WEB_PORT"
+  log "Web UI   : http://$PI_WEB_HOSTNAME:$PI_WEB_PORT"
+  pi-web status 2>/dev/null || true
 }
 
 case "${1:-start}" in
   start)
-    if [ -S "$SOCK" ] && pgrep -f "pi-web-server" >/dev/null 2>&1; then
+    if is_running; then
       log "pi-web 已在运行。"; status; exit 0
     fi
     stop_existing
-    start_sessiond
-    if wait_socket; then
-      start_server
-      sleep 1
+    start_server
+    if wait_ready; then
       status
-      log "完成。如需容器外访问，请用 PI_WEB_HOST=0.0.0.0 pi-web-start start 重启，并加反向代理鉴权"
+      log "完成。如需容器外访问，请用 PI_WEB_HOSTNAME=0.0.0.0 pi-web-start restart 重启，并加反向代理鉴权"
     else
       exit 1
     fi

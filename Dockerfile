@@ -24,29 +24,20 @@ RUN apt-get update \
 RUN npm install -g skills @opencode/cli
 # 安装 pi agent（pi.dev 官方包）
 RUN npm install -g @earendil-works/pi-coding-agent
-# 安装 pi-web（Pi Coding Agent 的 Web UI，npm 包 @jmfederico/pi-web）
-# --allow-scripts=node-pty 允许 node-pty 准备其原生模块（终端所需）
-RUN npm install -g @jmfederico/pi-web --allow-scripts=node-pty
-# 注册 pi-web 服务并写默认配置（host 127.0.0.1 / 端口 8504）
-# 注意：容器内以 127.0.0.1 监听，宿主机通过端口映射访问；如需容器外可达可改 PI_WEB_HOST=0.0.0.0
-RUN pi-web install --host 127.0.0.1 --port 8504 || true
-# 内置 pi-web 启动脚本（无 systemd 环境下手动拉起 sessiond + web server）
+# 安装 pi-web（Pi Coding Agent 的 Web UI，npm 包 @agegr/pi-web）
+# --allow-scripts 允许 node-pty 准备其原生模块（终端所需），也放行 pi-web 的 postinstall
+RUN npm install -g @agegr/pi-web@latest \
+    --allow-scripts=@agegr/pi-web,node-pty,@google/genai,protobufjs
+# @agegr/pi-web 为单进程架构，没有 `pi-web install` 注册步骤，
+# 启动方式：pi-web --hostname 127.0.0.1 --port 8504（见 scripts/pi-web-start）
+# 内置 pi-web 启动脚本（无 systemd 环境下手动拉起 pi-web 服务）
 COPY scripts/pi-web-start /usr/local/bin/pi-web-start
 RUN chmod +x /usr/local/bin/pi-web-start
 
 # ! 自定义自己的命令
-# busybox
-ADD https://github.com/jcleng/filearchive/releases/download/202609280936_busybox-x86_64/busybox-x86_64 /bin/busybox_new
-RUN chmod +x /bin/busybox_new && mv /bin/busybox_new /bin/busybox
 # docker 记得映射宿主机 /var/run/docker.sock
 COPY --from=registry.cn-hangzhou.aliyuncs.com/jcleng/library-docker:24.0.9-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=registry.cn-hangzhou.aliyuncs.com/jcleng/library-docker:24.0.9-cli /usr/local/bin/docker-compose /usr/local/bin/docker-compose
-# php
-RUN curl -fsSL https://dl.static-php.dev/static-php-cli/common/php-8.4.1-cli-linux-x86_64.tar.gz | tar -xz -C /usr/local/bin
-# RUN curl -fsSL "https://github.com/${REPO}/releases/download/static-php_${PHP_VERSION}_${FILE_DATE}/static-php-cli-${PHP_VERSION}_${FILE_DATE}.zip" -o /tmp/php.zip \
-#     && unzip -q /tmp/php.zip -d /tmp/php-extract \
-#     && install -m 0755 /tmp/php-extract/buildroot/bin/php /usr/local/bin/php \
-#     && rm -rf /tmp/php.zip /tmp/php-extract
 # gh命令
 RUN curl -fsSL https://github.com/cli/cli/releases/download/v2.101.0/gh_2.101.0_linux_amd64.tar.gz \
     | tar -xz -C /usr/local/bin --strip-components=2 gh_2.101.0_linux_amd64/bin/gh
@@ -55,9 +46,11 @@ RUN curl -fsSL https://github.com/cli/cli/releases/download/v2.101.0/gh_2.101.0_
 # 写入 PATH，保证容器内可直接调用 opencode
 ENV PATH="/root/.local/bin:${PATH}"
 
-# pi-web 监听端口（Web UI）。如需容器外可达，将下方 ENV 改为 0.0.0.0
-ENV PI_WEB_HOST=127.0.0.1 \
-    PI_WEB_PORT=8504
+# pi-web 监听地址/端口（Web UI）。如需容器外可达，将下方 PI_WEB_HOSTNAME 改为 0.0.0.0
+ENV PI_WEB_HOSTNAME=127.0.0.1 \
+    PI_WEB_PORT=8504 \
+    PI_WEB_NO_OPEN=1 \
+    PI_WEB_SKIP_VERSION_CHECK=1
 
 # 工作目录与 docker-compose 挂载路径保持一致
 WORKDIR /home/jcleng/work/mywork/

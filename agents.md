@@ -4,7 +4,7 @@
 
 ## 1. 镜像用途
 
-基于 Docker 的 [opencode](https://opencode.ai) 运行环境，预装 Node 24、Git、Python、skills CLI、docker/compose CLI、PHP、gh、busybox，以及 pi agent（pi.dev）。
+基于 Docker 的 [opencode](https://opencode.ai) 运行环境，预装 Node 24、Git、Python、skills CLI、docker/compose CLI、gh，以及 pi agent（pi.dev）。
 
 ## 2. 构建方式（已验证成功）
 
@@ -57,13 +57,13 @@ registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-docker-opencode
 3. **npm `allow-scripts` 机制**：新版 npm 默认不执行 `@opencode/cli` 的 `postinstall` 脚本，
    若本地构建需显式允许（`--allow-scripts=@opencode/cli`），否则 opencode 二进制可能未装入 `~/.local/bin`。
    当前 Dockerfile 中 pi agent 已移除 `--ignore-scripts`，正常执行其安装脚本。
-4. **pi-web 安装**：需以 `--allow-scripts=node-pty` 安装 `@jmfederico/pi-web`，
-   否则 `node-pty` 原生模块不会编译 / 准备，导致终端功能不可用。安装后运行 `pi-web install`
-   注册服务并写入默认配置（host `127.0.0.1` / 端口 `8504`）。该命令可能依赖 systemd 等宿主能力，
-   在容器内若失败可忽略（用 `|| true`）。
-5. **pi-web 是双进程架构**：`pi-web-sessiond`（建 Unix socket `sessiond.sock`）+ `pi-web-server`（Web 服务）。
-   容器内无 systemd，`pi-web start` 会走 systemd 后端而失败；必须用内置脚本 `pi-web-start`
-   （仓库 `scripts/pi-web-start` → 镜像 `/usr/local/bin/pi-web-start`）按序拉起两者。
+4. **pi-web 安装**：以 `--allow-scripts=@agegr/pi-web,node-pty,@google/genai,protobufjs` 安装
+   `@agegr/pi-web@latest`，否则 `node-pty` 原生模块与 `pi-web` 的 postinstall 不会执行，
+   导致终端功能不可用。`@agegr/pi-web` 为单进程架构，**没有** `pi-web install` 注册步骤
+   （旧包 `@jmfederico/pi-web` 的安装/启动方式不再适用）。
+5. **pi-web 是单进程架构**：`pi-web` 命令会校验 Node 版本并内部 spawn `next start`，
+   不依赖 systemd 与 sessiond。容器里的启动方式是内置脚本 `pi-web-start`
+   （仓库 `scripts/pi-web-start` → 镜像 `/usr/local/bin/pi-web-start`），支持 start/stop/restart/status。
    容器 `command` 为 `bash`，**不会自动启动 pi-web**，每次重启容器后需进容器执行 `pi-web-start start`。
 6. **本机用 `docker-compose` 而非 `docker compose`**：该环境只有独立版 `docker-compose`（v2.27.2），
    没有 `docker compose` 子命令；拉镜像/重建容器务必用 `docker-compose`。重建 `opencodenixos` 时流程：
@@ -74,10 +74,10 @@ registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-docker-opencode
 
 - 底包：`registry.cn-hangzhou.aliyuncs.com/jcleng/library-node:24`（Debian 12）
 - 系统依赖：`git`、`python3`（`python` 由 python-is-python3 提供）、`curl`、`ca-certificates`、`tar`、`unzip`
-- 全局工具：`skills`、`@opencode/cli`（~/.local/bin）、`docker`/`docker-compose`、`php` 8.4.1、`gh` v2.101.0、`busybox`
+- 全局工具：`skills`、`@opencode/cli`（~/.local/bin）、`docker`/`docker-compose`、`gh` v2.101.0
 - pi agent：`@earendil-works/pi-coding-agent`（命令 `pi`）
-- pi-web：`@jmfederico/pi-web`（命令 `pi-web` / `pi-web-server`，Web UI，默认 `127.0.0.1:8504`，监听地址/端口由 `PI_WEB_HOST` / `PI_WEB_PORT` 控制）
-- 内置启动脚本 `scripts/pi-web-start` → 镜像内 `/usr/local/bin/pi-web-start`（无 systemd 环境手动拉起 `pi-web-sessiond` + `pi-web-server`，支持 start/stop/restart/status）
+- pi-web：`@agegr/pi-web@latest`（命令 `pi-web`，Web UI，默认 `127.0.0.1:8504`，监听地址/端口由 `PI_WEB_HOSTNAME` / `PI_WEB_PORT` 控制）
+- 内置启动脚本 `scripts/pi-web-start` → 镜像内 `/usr/local/bin/pi-web-start`（单进程模式后台拉起 `pi-web`，支持 start/stop/restart/status）
 - 运行用户：`root`；工作目录：`/home/jcleng/work/mywork/`
 
 ## 6. 使用
@@ -88,7 +88,7 @@ docker-compose exec docker-opencode bash
 # 容器内
 opencode        # 启动 opencode
 pi             # 启动 pi agent
-pi-web-start start   # 启动 pi-web Web UI（先 sessiond 建 socket，再 web server）
+pi-web-start start   # 启动 pi-web Web UI（单进程，直接拉起 pi-web 服务）
 ```
 
 > opencodenixos 服务定义在另一个 compose 文件（`/home/jcleng/work/monit/opencode/docker-compose.yml`），
